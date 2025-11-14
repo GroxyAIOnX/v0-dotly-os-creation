@@ -13,19 +13,10 @@ import Terminal from "@/components/apps/terminal"
 import Launcher from "@/components/apps/launcher"
 import BootManager from "@/components/apps/boot-manager"
 import RegistryEditor from "@/components/apps/registry-editor"
+import ImportHtml from "@/components/apps/import-html"
 import RestartScreen from "@/components/restart-screen"
 import AlertDialog from "@/components/alert-dialog"
-import {
-  FolderOpen,
-  SettingsIcon,
-  FileText,
-  CableIcon as CalcIcon,
-  TerminalIcon,
-  ImageIcon,
-  Grid3x3,
-  HardDrive,
-  Database,
-} from "lucide-react"
+import { FolderOpen, SettingsIcon, FileText, CableIcon as CalcIcon, TerminalIcon, ImageIcon, Grid3x3, HardDrive, Database, FileCode } from 'lucide-react'
 
 interface DesktopProps {
   username: string
@@ -77,6 +68,10 @@ export default function Desktop({ username }: DesktopProps) {
     openApp("notes")
   }
 
+  const showAlert = (alertData: { type: "error" | "warning" | "info" | "success"; title: string; message: string }) => {
+    setAlert(alertData)
+  }
+
   const apps = [
     {
       id: "launcher",
@@ -115,6 +110,14 @@ export default function Desktop({ username }: DesktopProps) {
       name: "Calculator",
       icon: <CalcIcon className="w-6 h-6" />,
       component: Calculator,
+      showInDock: true,
+      adminOnly: false,
+    },
+    {
+      id: "import-html",
+      name: "Import HTML",
+      icon: <FileCode className="w-6 h-6" />,
+      component: ImportHtml,
       showInDock: true,
       adminOnly: false,
     },
@@ -174,6 +177,10 @@ export default function Desktop({ username }: DesktopProps) {
     } else if (appId === "notes" && noteToOpen) {
       component = <AppComponent initialNote={noteToOpen} />
       setNoteToOpen(null) // Clear after opening
+    } else if (appId === "settings") {
+      component = <AppComponent username={username} onShowAlert={showAlert} />
+    } else if (appId === "import-html") {
+      component = <AppComponent username={username} />
     } else {
       component = <AppComponent />
     }
@@ -224,7 +231,6 @@ export default function Desktop({ username }: DesktopProps) {
         </div>
       )}
 
-      {/* Windows */}
       {windows.map(
         (window) =>
           !window.isMinimized && (
@@ -242,7 +248,6 @@ export default function Desktop({ username }: DesktopProps) {
           ),
       )}
 
-      {/* Taskbar */}
       <Taskbar
         username={username}
         time={time}
@@ -260,7 +265,6 @@ export default function Desktop({ username }: DesktopProps) {
         isAdminMode={isAdminMode}
       />
 
-      {/* Windows-style alert dialog overlay */}
       {alert && (
         <AlertDialog type={alert.type} title={alert.title} message={alert.message} onClose={() => setAlert(null)} />
       )}

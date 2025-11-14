@@ -1,9 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import LockScreen from "@/components/lock-screen"
 import Desktop from "@/components/desktop"
 import BootSequence from "@/components/boot-sequence"
+import { getAccount, createDefaultAccount, saveAccount, setCurrentUser } from "@/lib/storage"
 
 export default function DotlyOS() {
   const [bootComplete, setBootComplete] = useState(false)
@@ -16,13 +17,21 @@ export default function DotlyOS() {
       setUsername(user)
       setIsLoggedIn(true)
     } else {
-      // For Admin, show lock screen
       setUsername("")
       setIsLoggedIn(false)
     }
   }
 
   const handleLogin = (user: string) => {
+    let account = getAccount(user)
+
+    // Create account if it doesn't exist
+    if (!account) {
+      account = createDefaultAccount(user)
+      saveAccount(account)
+    }
+
+    setCurrentUser(user)
     setUsername(user)
     setIsLoggedIn(true)
   }

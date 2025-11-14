@@ -1,11 +1,18 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
-import { Monitor, Wifi, Volume2, Bell, Lock, Palette } from "lucide-react"
+import { Monitor, Wifi, Volume2, Bell, Palette, Trash2 } from 'lucide-react'
+import { getAccount, saveAccount, clearAccountData } from "@/lib/storage"
+import { playErrorSound } from "@/lib/sounds"
 
-export default function Settings() {
+interface SettingsProps {
+  username?: string
+  onShowAlert?: (alert: { type: "error" | "warning" | "info" | "success"; title: string; message: string }) => void
+}
+
+export default function Settings({ username, onShowAlert }: SettingsProps) {
   const [settings, setSettings] = useState({
     notifications: true,
     sound: true,
@@ -13,8 +20,54 @@ export default function Settings() {
     bluetooth: false,
   })
 
+  useEffect(() => {
+    if (username) {
+      const account = getAccount(username)
+      if (account) {
+        setSettings(account.settings)
+      }
+    }
+  }, [username])
+
   const toggleSetting = (key: keyof typeof settings) => {
-    setSettings((prev) => ({ ...prev, [key]: !prev[key] }))
+    const newSettings = { ...settings, [key]: !settings[key] }
+    setSettings(newSettings)
+
+    if (username) {
+      const account = getAccount(username)
+      if (account) {
+        account.settings = newSettings
+        saveAccount(account)
+      }
+    }
+  }
+
+  const handleClearData = () => {
+    if (!username) return
+
+    if (onShowAlert) {
+      // Show confirmation alert
+      onShowAlert({
+        type: "warning",
+        title: "Security Warning",
+        message: `This will permanently delete all data for ${username}. This action cannot be undone. Click OK to confirm.`,
+      })
+
+      // Play error sound
+      playErrorSound()
+
+      // Clear data after a delay to allow user to see the alert
+      setTimeout(() => {
+        clearAccountData(username)
+        if (onShowAlert) {
+          onShowAlert({
+            type: "success",
+            title: "Data Cleared",
+            message: "All user data has been successfully cleared.",
+          })
+        }
+      }, 3000)
+    }
   }
 
   const settingsSections = [
@@ -91,18 +144,18 @@ export default function Settings() {
             </Button>
           </div>
 
-          <div className="bg-card rounded-lg border border-border p-4">
+          <div className="bg-destructive/10 rounded-lg border border-destructive/50 p-4">
             <div className="flex items-center gap-3 mb-4">
-              <span className="text-primary">
-                <Lock className="h-5 w-5" />
+              <span className="text-destructive">
+                <Trash2 className="h-5 w-5" />
               </span>
-              <h3 className="text-lg font-semibold text-foreground">Security</h3>
+              <h3 className="text-lg font-semibold text-destructive">Danger Zone</h3>
             </div>
-            <Button variant="outline" className="w-full mb-2 bg-transparent">
-              Change Password
-            </Button>
-            <Button variant="outline" className="w-full bg-transparent">
-              Privacy Settings
+            <p className="text-sm text-muted-foreground mb-4">
+              Permanently delete all data for this account. This action cannot be undone.
+            </p>
+            <Button onClick={handleClearData} variant="destructive" className="w-full">
+              Clear All Data
             </Button>
           </div>
         </div>
