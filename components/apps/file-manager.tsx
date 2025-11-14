@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { ChevronRight, Folder, FileText, AlertTriangle, Shield, Edit, Trash2 } from "lucide-react"
+import { ChevronRight, Folder, FileText, AlertTriangle, Shield, Edit, Trash2, HardDrive, Volume2 } from 'lucide-react'
 import AlertDialog from "@/components/alert-dialog"
 
 interface FileNode {
@@ -57,6 +57,49 @@ const fileSystem: FileNode = {
                   type: "file",
                   isSystem: true,
                   content: "timeout=5\ndefault=dotlyOS\nquiet splash",
+                },
+                {
+                  name: "sound-effects",
+                  type: "folder",
+                  isSystem: true,
+                  children: [
+                    {
+                      name: "error.wav",
+                      type: "file",
+                      isSystem: true,
+                      content: "Windows Error Sound\nFrequency: 1047Hz (C6) followed by 831Hz (G#5)\nDuration: 200ms each\nFormat: WAV 16-bit PCM",
+                    },
+                    {
+                      name: "startup.wav",
+                      type: "file",
+                      isSystem: true,
+                      content: "System Startup Sound\nMelody: Ascending chord progression\nFormat: WAV 16-bit PCM\nDuration: 3s",
+                    },
+                    {
+                      name: "shutdown.wav",
+                      type: "file",
+                      isSystem: true,
+                      content: "System Shutdown Sound\nMelody: Descending chord progression\nFormat: WAV 16-bit PCM\nDuration: 2s",
+                    },
+                    {
+                      name: "notification.wav",
+                      type: "file",
+                      isSystem: true,
+                      content: "Notification Sound\nFrequency: 800Hz pure tone\nDuration: 100ms\nFormat: WAV 16-bit PCM",
+                    },
+                    {
+                      name: "critical-stop.wav",
+                      type: "file",
+                      isSystem: true,
+                      content: "Critical Stop Error\nFrequency: Low rumble at 220Hz\nDuration: 500ms\nFormat: WAV 16-bit PCM",
+                    },
+                    {
+                      name: "alert.wav",
+                      type: "file",
+                      isSystem: true,
+                      content: "Alert Sound\nFrequency: 1200Hz\nDuration: 150ms\nFormat: WAV 16-bit PCM",
+                    },
+                  ],
                 },
                 {
                   name: "core",
@@ -263,10 +306,16 @@ export default function FileManager({ isAdminMode = false, onOpenNote }: FileMan
                 }}
               >
                 <div className="flex items-center gap-3">
-                  {node.type === "folder" ? (
-                    <Folder className={`h-5 w-5 ${node.isSystem ? "text-destructive" : "text-accent"}`} />
+                  {node.isSystem ? (
+                    node.type === "folder" && node.name === "sound-effects" ? (
+                      <Volume2 className="h-5 w-5 text-destructive" />
+                    ) : (
+                      <HardDrive className="h-5 w-5 text-destructive" />
+                    )
+                  ) : node.type === "folder" ? (
+                    <Folder className="h-5 w-5 text-accent" />
                   ) : (
-                    <FileText className={`h-5 w-5 ${node.isSystem ? "text-destructive" : "text-primary"}`} />
+                    <FileText className="h-5 w-5 text-primary" />
                   )}
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-foreground truncate">{node.name}</p>
@@ -294,7 +343,11 @@ export default function FileManager({ isAdminMode = false, onOpenNote }: FileMan
         {selectedFile && (
           <div className="w-80 bg-secondary border-l border-border p-4 overflow-y-auto">
             <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-              <FileText className="h-4 w-4 text-primary" />
+              {selectedFile.isSystem ? (
+                <HardDrive className="h-4 w-4 text-destructive" />
+              ) : (
+                <FileText className="h-4 w-4 text-primary" />
+              )}
               {selectedFile.name}
             </h3>
 

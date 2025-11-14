@@ -13,10 +13,10 @@ export default function BootSequence({ onBootComplete }: BootSequenceProps) {
   const [stage, setStage] = useState<BootStage>("dotlyware")
   const [countdown, setCountdown] = useState(5)
   const [terminalInput, setTerminalInput] = useState("")
-  const [cursorVisible, setCursorVisible] = useState(true)
+  const [spinnerRotation, setSpinnerRotation] = useState(0)
+  const [spinnerVisible, setSpinnerVisible] = useState(true)
   const terminalRef = useRef<HTMLDivElement>(null)
 
-  // Dotlyware screen - show for 2 seconds
   useEffect(() => {
     if (stage === "dotlyware") {
       const timer = setTimeout(() => {
@@ -26,7 +26,6 @@ export default function BootSequence({ onBootComplete }: BootSequenceProps) {
     }
   }, [stage])
 
-  // Boot menu countdown
   useEffect(() => {
     if (stage === "boot-menu") {
       if (countdown > 0) {
@@ -35,13 +34,11 @@ export default function BootSequence({ onBootComplete }: BootSequenceProps) {
         }, 1000)
         return () => clearTimeout(timer)
       } else {
-        // Auto-boot after 5 seconds
         setStage("loading")
       }
     }
   }, [stage, countdown])
 
-  // Boot menu - listen for ESC key
   useEffect(() => {
     if (stage === "boot-menu") {
       const handleKeyDown = (e: KeyboardEvent) => {
@@ -54,17 +51,23 @@ export default function BootSequence({ onBootComplete }: BootSequenceProps) {
     }
   }, [stage])
 
-  // Boot terminal - blinking cursor
   useEffect(() => {
     if (stage === "boot-terminal") {
-      const interval = setInterval(() => {
-        setCursorVisible((v) => !v)
+      const spinInterval = setInterval(() => {
+        setSpinnerRotation((prev) => (prev + 90) % 360)
+      }, 250)
+      
+      const blinkInterval = setInterval(() => {
+        setSpinnerVisible((prev) => !prev)
       }, 500)
-      return () => clearInterval(interval)
+      
+      return () => {
+        clearInterval(spinInterval)
+        clearInterval(blinkInterval)
+      }
     }
   }, [stage])
 
-  // Boot terminal - handle input
   useEffect(() => {
     if (stage === "boot-terminal") {
       const handleKeyDown = (e: KeyboardEvent) => {
@@ -79,6 +82,15 @@ export default function BootSequence({ onBootComplete }: BootSequenceProps) {
             setTimeout(() => {
               onBootComplete("Guest")
             }, 2000)
+          } else if (terminalInput === "dis par boot.bin admin = true") {
+            localStorage.setItem("dotlyOS_fastboot", "true")
+            setTerminalInput("")
+            const feedback = document.createElement("div")
+            feedback.className = "text-green-400 mt-2"
+            feedback.textContent = "✓ Fast boot enabled. Admin mode will boot faster."
+            terminalRef.current?.appendChild(feedback)
+            setTimeout(() => feedback.remove(), 3000)
+            return
           } else {
             setTerminalInput("")
           }
@@ -100,12 +112,14 @@ export default function BootSequence({ onBootComplete }: BootSequenceProps) {
     }
   }, [stage, terminalInput, onBootComplete])
 
-  // Loading screen - boot to admin after 2 seconds
   useEffect(() => {
     if (stage === "loading") {
+      const fastBoot = localStorage.getItem("dotlyOS_fastboot") === "true"
+      const bootTime = fastBoot ? 800 : 2000
+      
       const timer = setTimeout(() => {
         onBootComplete("Admin")
-      }, 2000)
+      }, bootTime)
       return () => clearTimeout(timer)
     }
   }, [stage, onBootComplete])
@@ -152,12 +166,20 @@ export default function BootSequence({ onBootComplete }: BootSequenceProps) {
             <div className="flex items-center">
               <span className="mr-2">boot&gt;</span>
               <span className="caret-transparent">{terminalInput}</span>
-              <span className={`ml-0.5 ${cursorVisible ? "opacity-100" : "opacity-0"}`}>\</span>
+              <span 
+                className={`ml-1 inline-block text-lg leading-none transition-all duration-150 ${
+                  spinnerVisible ? "opacity-100" : "opacity-0"
+                }`}
+                style={{ transform: `rotate(${spinnerRotation}deg)` }}
+              >
+                /
+              </span>
             </div>
           </div>
           <div className="mt-8 text-xs text-gray-600">
             <div>Available commands:</div>
             <div className="ml-4">dotly.sign.in/guest - Boot into Guest account</div>
+            <div className="ml-4">dis par boot.bin admin = true - Enable fast boot for Admin</div>
           </div>
         </div>
       </div>

@@ -39,7 +39,8 @@ export default function Terminal({ onAdminAccess }: TerminalProps) {
   clear      - Clear terminal screen
   date       - Show current date and time
   whoami     - Display current user
-  admin.access - Enter admin mode (requires system restart)`
+  admin.access - Enter admin mode (requires system restart)
+  dis par boot.bin admin = true - Enable fast boot for admin mode`
         break
 
       case "clear":
@@ -64,6 +65,12 @@ export default function Terminal({ onAdminAccess }: TerminalProps) {
           onAdminAccess()
         }, 1500)
         return
+
+      case "dis par boot.bin admin = true":
+        localStorage.setItem("dotlyOS_fastboot", "true")
+        output = "✓ Fast boot enabled successfully.\nAdmin mode will now boot faster on next restart."
+        type = "success"
+        break
 
       case "":
         setCurrentInput("")
