@@ -5,9 +5,9 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { ArrowRight, Plus } from 'lucide-react'
+import { ArrowRight, Plus, ArrowLeft } from 'lucide-react'
 import Image from "next/image"
-import { getAllAccounts, type UserAccount } from "@/lib/storage"
+import { getAllAccounts, type UserAccount, setSelectedAccount, getSelectedAccount, clearSelectedAccount } from "@/lib/storage"
 
 interface LockScreenProps {
   onLogin: (username: string) => void
@@ -15,14 +15,26 @@ interface LockScreenProps {
 
 export default function LockScreen({ onLogin }: LockScreenProps) {
   const [username, setUsername] = useState("")
+  const [password, setPassword] = useState("")
   const [time, setTime] = useState(new Date())
   const [accounts, setAccounts] = useState<UserAccount[]>([])
   const [isCreatingAccount, setIsCreatingAccount] = useState(false)
-  const [selectedAccount, setSelectedAccount] = useState<string | null>(null)
+  const [selectedAccount, setSelectedAccountState] = useState<string | null>(null)
+  const [showPasswordScreen, setShowPasswordScreen] = useState(false)
 
   useEffect(() => {
     const loadedAccounts = getAllAccounts()
     setAccounts(loadedAccounts)
+    
+    const saved = getSelectedAccount()
+    if (saved) {
+      const account = loadedAccounts.find(a => a.username === saved)
+      if (account) {
+        setSelectedAccountState(saved)
+        setUsername(saved)
+        setShowPasswordScreen(true)
+      }
+    }
   }, [])
 
   // Update time every second
@@ -34,13 +46,30 @@ export default function LockScreen({ onLogin }: LockScreenProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (username.trim()) {
+      clearSelectedAccount()
       onLogin(username.trim())
     }
   }
 
+  const handlePasswordSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    // No actual password check, just login
+    clearSelectedAccount()
+    onLogin(username)
+  }
+
   const handleSelectAccount = (accountName: string) => {
-    setSelectedAccount(accountName)
+    setSelectedAccountState(accountName)
     setUsername(accountName)
+    setSelectedAccount(accountName)
+    setShowPasswordScreen(true)
+  }
+
+  const handleBackToAccounts = () => {
+    setShowPasswordScreen(false)
+    setSelectedAccountState(null)
+    setPassword("")
+    clearSelectedAccount()
   }
 
   const formattedTime = time.toLocaleTimeString("en-US", {
@@ -53,6 +82,8 @@ export default function LockScreen({ onLogin }: LockScreenProps) {
     month: "long",
     day: "numeric",
   })
+
+  const selectedAccountData = showPasswordScreen ? accounts.find(a => a.username === username) : null
 
   return (
     <div className="h-full w-full bg-gradient-to-br from-violet-600 via-purple-500 to-pink-500 flex items-center justify-center relative overflow-hidden">
@@ -71,21 +102,65 @@ export default function LockScreen({ onLogin }: LockScreenProps) {
         </div>
 
         <div className="w-full max-w-sm">
-          {!isCreatingAccount && accounts.length > 0 ? (
+          {showPasswordScreen && selectedAccountData ? (
+            <div className="bg-white/10 backdrop-blur-2xl border border-white/20 rounded-3xl p-8 shadow-2xl">
+              <div className="mb-6 text-center">
+                <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-white/20 backdrop-blur-sm mb-4 border-2 border-white/30 overflow-hidden">
+                  <Image
+                    src={selectedAccountData.avatar || "/admin-avatar.png"}
+                    alt={selectedAccountData.username}
+                    width={96}
+                    height={96}
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+                <h2 className="text-2xl font-semibold text-white mb-2">
+                  {selectedAccountData.username}
+                </h2>
+              </div>
+
+              <form onSubmit={handlePasswordSubmit} className="space-y-4">
+                <Input
+                  type="password"
+                  placeholder="Enter password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="h-12 bg-white/20 backdrop-blur-2xl border-white/30 text-white placeholder:text-white/60 rounded-full focus:bg-white/25 focus:border-white/50"
+                  autoFocus
+                />
+                <Button
+                  type="submit"
+                  className="w-full h-12 bg-white/20 backdrop-blur-2xl hover:bg-white/30 text-white rounded-full shadow-lg border border-white/30"
+                >
+                  Sign In
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </form>
+
+              <Button
+                onClick={handleBackToAccounts}
+                variant="ghost"
+                className="w-full mt-4 text-white hover:text-white hover:bg-white/10 rounded-full"
+              >
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back
+              </Button>
+
+              <p className="text-xs text-center text-white/70 mt-6">No password required • Press Enter</p>
+            </div>
+          ) : !isCreatingAccount && accounts.length > 0 ? (
             <div className="space-y-4">
               {/* Existing Accounts */}
               {accounts.map((account) => (
                 <button
                   key={account.username}
                   onClick={() => handleSelectAccount(account.username)}
-                  className={`w-full bg-white/10 backdrop-blur-2xl border ${
-                    selectedAccount === account.username ? "border-white/50" : "border-white/20"
-                  } rounded-3xl p-6 shadow-2xl hover:bg-white/15 transition-all`}
+                  className="w-full bg-white/10 backdrop-blur-2xl border border-white/20 rounded-3xl p-6 shadow-2xl hover:bg-white/15 transition-all"
                 >
                   <div className="flex items-center gap-4">
                     <div className="w-16 h-16 rounded-full bg-white/20 backdrop-blur-sm border-2 border-white/30 overflow-hidden flex-shrink-0">
                       <Image
-                        src="/admin-avatar.png"
+                        src={account.avatar || "/admin-avatar.png"}
                         alt={account.username}
                         width={64}
                         height={64}
@@ -110,17 +185,6 @@ export default function LockScreen({ onLogin }: LockScreenProps) {
                   <span className="font-semibold">Create New Account</span>
                 </div>
               </button>
-
-              {/* Sign in with selected account */}
-              {selectedAccount && (
-                <Button
-                  onClick={() => onLogin(selectedAccount)}
-                  className="w-full h-12 bg-white/20 backdrop-blur-2xl hover:bg-white/30 text-white rounded-xl shadow-lg border border-white/30"
-                >
-                  Sign In
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              )}
             </div>
           ) : (
             // Create Account Form

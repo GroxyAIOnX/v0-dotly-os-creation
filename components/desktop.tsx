@@ -16,7 +16,9 @@ import RegistryEditor from "@/components/apps/registry-editor"
 import ImportHtml from "@/components/apps/import-html"
 import RestartScreen from "@/components/restart-screen"
 import AlertDialog from "@/components/alert-dialog"
-import { FolderOpen, SettingsIcon, FileText, CableIcon as CalcIcon, TerminalIcon, ImageIcon, Grid3x3, HardDrive, Database, FileCode } from 'lucide-react'
+import DrxInstaller from "@/components/apps/drx-installer"
+import { FolderOpen, SettingsIcon, FileText, CableIcon as CalcIcon, TerminalIcon, ImageIcon, Grid3x3, HardDrive, Database, FileCode, RefreshCw, LogOut, Package } from 'lucide-react'
+import { getAccount, saveAccount } from "@/lib/storage"
 
 interface DesktopProps {
   username: string
@@ -44,10 +46,22 @@ export default function Desktop({ username }: DesktopProps) {
   const [isRestarting, setIsRestarting] = useState(false)
   const [restartMode, setRestartMode] = useState<"admin" | "normal">("normal")
   const [noteToOpen, setNoteToOpen] = useState<{ name: string; content: string } | null>(null)
+  const [drxInstallerData, setDrxInstallerData] = useState<{ name: string; html: string } | null>(null)
+  const [desktopContextMenu, setDesktopContextMenu] = useState<{ x: number; y: number } | null>(null)
+  const [installedDrxApps, setInstalledDrxApps] = useState<Array<{ id: string; name: string; html: string }>>([])
 
   useState(() => {
     const timer = setInterval(() => setTime(new Date()), 1000)
     return () => clearInterval(timer)
+  })
+
+  useState(() => {
+    if (username) {
+      const account = getAccount(username)
+      if (account?.drxApps) {
+        setInstalledDrxApps(account.drxApps)
+      }
+    }
   })
 
   const handleAdminAccess = () => {
@@ -71,6 +85,64 @@ export default function Desktop({ username }: DesktopProps) {
   const showAlert = (alertData: { type: "error" | "warning" | "info" | "success"; title: string; message: string }) => {
     setAlert(alertData)
   }
+
+  const handleDesktopContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault()
+    setDesktopContextMenu({ x: e.clientX, y: e.clientY })
+  }
+
+  const handleCloseDesktopMenu = () => {
+    setDesktopContextMenu(null)
+  }
+
+  const handleRefresh = () => {
+    setRestartMode("normal")
+    setIsRestarting(true)
+    setDesktopContextMenu(null)
+  }
+
+  const handleLogout = () => {
+    window.location.reload()
+  }
+
+  const handleOpenDrxInstaller = (name: string, html: string) => {
+    setDrxInstallerData({ name, html })
+    openApp("drx-installer")
+  }
+
+  const handleDrxInstallComplete = (installed: boolean) => {
+    if (installed && drxInstallerData && username) {
+      const account = getAccount(username)
+      if (account) {
+        const newApp = {
+          id: Date.now().toString(),
+          name: drxInstallerData.name,
+          html: drxInstallerData.html,
+          installedAt: new Date().toISOString(),
+        }
+        
+        if (!account.drxApps) account.drxApps = []
+        if (!account.savedHtmlApps) account.savedHtmlApps = []
+        
+        account.drxApps.push(newApp)
+        account.savedHtmlApps.push(newApp)
+        saveAccount(account)
+        
+        setInstalledDrxApps([...account.drxApps])
+      }
+    }
+    setDrxInstallerData(null)
+    closeWindow("drx-installer")
+  }
+
+  useState(() => {
+    if (desktopContextMenu) {
+      document.addEventListener("click", handleCloseDesktopMenu)
+      return () => {
+        document.removeEventListener("click", handleCloseDesktopMenu)
+      }
+    }
+  })
 
   const apps = [
     {
@@ -153,6 +225,38 @@ export default function Desktop({ username }: DesktopProps) {
       showInDock: false,
       adminOnly: false,
     },
+    {
+      id: "drx-installer",
+      name: "Application Installer",
+      icon: <Package className="w-6 h-6" />,
+      component: DrxInstaller,
+      showInDock: false,
+      adminOnly: false,
+    },
+  ]
+
+  const allApps = [
+    ...apps,
+    // Add installed .drx apps dynamically
+    ...installedDrxApps.map((drxApp) => ({
+      id: `drx-${drxApp.id}`,
+      name: drxApp.name,
+      icon: <Package className="w-6 h-6 text-primary" />,
+      component: () => (
+        <div className="h-full w-full overflow-auto">
+          <iframe
+            srcDoc={drxApp.html}
+            className="w-full min-h-full border-0"
+            style={{ height: '100%', minHeight: '100%' }}
+            title={drxApp.name}
+            sandbox="allow-scripts allow-same-origin allow-forms allow-modals allow-popups"
+          />
+        </div>
+      ),
+      showInDock: true,
+      adminOnly: false,
+      isDrxApp: true,
+    })),
   ]
 
   const openApp = (appId: string) => {
@@ -163,15 +267,20 @@ export default function Desktop({ username }: DesktopProps) {
       return
     }
 
-    const app = apps.find((a) => a.id === appId)
+    const app = allApps.find((a) => a.id === appId)
     if (!app) return
+
+    if (appId === "drx-installer" && !drxInstallerData) {
+      console.log("[v0] Cannot open drx-installer without installation data")
+      return
+    }
 
     const AppComponent = app.component
     let component: React.ReactNode
     if (appId === "terminal") {
       component = <AppComponent onAdminAccess={handleAdminAccess} />
     } else if (appId === "launcher") {
-      component = <AppComponent apps={apps} onAppOpen={openApp} isAdminMode={isAdminMode} />
+      component = <AppComponent apps={allApps} onAppOpen={openApp} isAdminMode={isAdminMode} />
     } else if (appId === "files") {
       component = <AppComponent isAdminMode={isAdminMode} onOpenNote={handleOpenNote} />
     } else if (appId === "notes" && noteToOpen) {
@@ -180,7 +289,16 @@ export default function Desktop({ username }: DesktopProps) {
     } else if (appId === "settings") {
       component = <AppComponent username={username} onShowAlert={showAlert} />
     } else if (appId === "import-html") {
-      component = <AppComponent username={username} />
+      component = <AppComponent username={username} onOpenDrxInstaller={handleOpenDrxInstaller} />
+    } else if (appId === "drx-installer" && drxInstallerData) {
+      component = (
+        <AppComponent
+          appName={drxInstallerData.name}
+          appHtml={drxInstallerData.html}
+          onInstall={handleDrxInstallComplete}
+          onClose={() => closeWindow("drx-installer")}
+        />
+      )
     } else {
       component = <AppComponent />
     }
@@ -224,7 +342,10 @@ export default function Desktop({ username }: DesktopProps) {
   }
 
   return (
-    <div className="h-full w-full bg-gradient-to-br from-violet-600 via-purple-600 to-pink-500 relative">
+    <div 
+      className="h-full w-full bg-gradient-to-br from-violet-600 via-purple-600 to-pink-500 relative"
+      onContextMenu={handleDesktopContextMenu}
+    >
       {isAdminMode && (
         <div className="absolute top-4 right-4 z-50 bg-destructive/90 backdrop-blur-sm text-white px-4 py-2 rounded-full text-sm font-semibold border border-destructive shadow-lg">
           ADMIN MODE
@@ -242,6 +363,25 @@ export default function Desktop({ username }: DesktopProps) {
               onMinimize={() => minimizeWindow(window.id)}
               onFocus={() => bringToFront(window.id)}
               zIndex={window.zIndex}
+              isMinimized={window.isMinimized}
+            >
+              {window.component}
+            </Window>
+          ),
+      )}
+
+      {windows.map(
+        (window) =>
+          window.isMinimized && (
+            <Window
+              key={window.id}
+              title={window.title}
+              icon={window.icon}
+              onClose={() => closeWindow(window.id)}
+              onMinimize={() => minimizeWindow(window.id)}
+              onFocus={() => bringToFront(window.id)}
+              zIndex={window.zIndex}
+              isMinimized={true}
             >
               {window.component}
             </Window>
@@ -257,13 +397,48 @@ export default function Desktop({ username }: DesktopProps) {
           icon: w.icon,
           isMinimized: w.isMinimized,
         }))}
-        dockApps={apps
+        dockApps={allApps
           .filter((app) => app.showInDock && (!app.adminOnly || isAdminMode))
           .map((app) => ({ id: app.id, name: app.name, icon: app.icon }))}
         onWindowClick={toggleMinimize}
         onAppOpen={openApp}
         isAdminMode={isAdminMode}
       />
+
+      {desktopContextMenu && (
+        <div
+          className="fixed bg-card/95 backdrop-blur-xl border border-border/50 rounded-lg shadow-2xl py-1 min-w-[180px] z-[10000]"
+          style={{ left: `${desktopContextMenu.x}px`, top: `${desktopContextMenu.y}px` }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            className="w-full px-4 py-2 text-left text-sm hover:bg-secondary/50 flex items-center gap-2"
+            onClick={handleRefresh}
+          >
+            <RefreshCw className="h-4 w-4" />
+            Refresh
+          </button>
+          <div className="h-px bg-border/50 my-1" />
+          <button
+            className="w-full px-4 py-2 text-left text-sm hover:bg-secondary/50 flex items-center gap-2"
+            onClick={() => {
+              openApp("settings")
+              setDesktopContextMenu(null)
+            }}
+          >
+            <SettingsIcon className="h-4 w-4" />
+            Settings
+          </button>
+          <div className="h-px bg-border/50 my-1" />
+          <button
+            className="w-full px-4 py-2 text-left text-sm hover:bg-destructive/50 text-destructive flex items-center gap-2"
+            onClick={handleLogout}
+          >
+            <LogOut className="h-4 w-4" />
+            Sign Out
+          </button>
+        </div>
+      )}
 
       {alert && (
         <AlertDialog type={alert.type} title={alert.title} message={alert.message} onClose={() => setAlert(null)} />

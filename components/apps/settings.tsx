@@ -1,11 +1,13 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
-import { Monitor, Wifi, Volume2, Bell, Palette, Trash2 } from 'lucide-react'
+import { Monitor, Wifi, Volume2, Bell, Palette, Trash2, User, Upload, Lock, AlertCircle } from 'lucide-react'
 import { getAccount, saveAccount, clearAccountData } from "@/lib/storage"
 import { playErrorSound } from "@/lib/sounds"
+import Image from "next/image"
 
 interface SettingsProps {
   username?: string
@@ -19,15 +21,42 @@ export default function Settings({ username, onShowAlert }: SettingsProps) {
     wifi: true,
     bluetooth: false,
   })
+  const [avatar, setAvatar] = useState<string>("/admin-avatar.png")
+  const [password, setPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [showPasswordNotification, setShowPasswordNotification] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (username) {
       const account = getAccount(username)
       if (account) {
         setSettings(account.settings)
+        setAvatar(account.avatar || "/admin-avatar.png")
+        if (!account.hasPassword) {
+          setShowPasswordNotification(true)
+        }
       }
     }
   }, [username])
+
+  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !username) return
+
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      const result = event.target?.result as string
+      setAvatar(result)
+
+      const account = getAccount(username)
+      if (account) {
+        account.avatar = result
+        saveAccount(account)
+      }
+    }
+    reader.readAsDataURL(file)
+  }
 
   const toggleSetting = (key: keyof typeof settings) => {
     const newSettings = { ...settings, [key]: !settings[key] }
@@ -46,17 +75,14 @@ export default function Settings({ username, onShowAlert }: SettingsProps) {
     if (!username) return
 
     if (onShowAlert) {
-      // Show confirmation alert
       onShowAlert({
         type: "warning",
         title: "Security Warning",
         message: `This will permanently delete all data for ${username}. This action cannot be undone. Click OK to confirm.`,
       })
 
-      // Play error sound
       playErrorSound()
 
-      // Clear data after a delay to allow user to see the alert
       setTimeout(() => {
         clearAccountData(username)
         if (onShowAlert) {
@@ -67,6 +93,44 @@ export default function Settings({ username, onShowAlert }: SettingsProps) {
           })
         }
       }, 3000)
+    }
+  }
+
+  const handleCreatePassword = () => {
+    if (!username) return
+    
+    if (password.length < 4) {
+      onShowAlert?.({
+        type: "error",
+        title: "Invalid Password",
+        message: "Password must be at least 4 characters long.",
+      })
+      return
+    }
+
+    if (password !== confirmPassword) {
+      onShowAlert?.({
+        type: "error",
+        title: "Password Mismatch",
+        message: "Passwords do not match. Please try again.",
+      })
+      return
+    }
+
+    const account = getAccount(username)
+    if (account) {
+      account.password = password
+      account.hasPassword = true
+      saveAccount(account)
+      setShowPasswordNotification(false)
+      setPassword("")
+      setConfirmPassword("")
+      
+      onShowAlert?.({
+        type: "success",
+        title: "Password Created",
+        message: "Your password has been successfully created. You will need it to sign in next time.",
+      })
     }
   }
 
@@ -110,6 +174,93 @@ export default function Settings({ username, onShowAlert }: SettingsProps) {
         <h2 className="text-2xl font-bold text-foreground mb-6">Settings</h2>
 
         <div className="space-y-6">
+          {showPasswordNotification && (
+            <div className="bg-amber-500/10 border border-amber-500/50 rounded-lg p-4 flex items-start gap-3">
+              <AlertCircle className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <h4 className="font-semibold text-foreground mb-1">Security Update Required</h4>
+                <p className="text-sm text-muted-foreground">
+                  Your account was created before the password update. Please create a password below to secure your account.
+                </p>
+              </div>
+            </div>
+          )}
+
+          <div className="bg-card rounded-lg border border-border p-4">
+            <div className="flex items-center gap-3 mb-4">
+              <span className="text-primary">
+                <User className="h-5 w-5" />
+              </span>
+              <h3 className="text-lg font-semibold text-foreground">Profile</h3>
+            </div>
+            
+            <div className="flex items-center gap-6">
+              <div className="w-20 h-20 rounded-full bg-muted border-2 border-border overflow-hidden flex-shrink-0">
+                <Image
+                  src={avatar || "/placeholder.svg"}
+                  alt="Profile"
+                  width={80}
+                  height={80}
+                  className="w-full h-full object-contain"
+                />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm text-muted-foreground mb-3">Change your profile picture</p>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleAvatarUpload}
+                  className="hidden"
+                />
+                <Button
+                  onClick={() => fileInputRef.current?.click()}
+                  variant="outline"
+                  className="bg-transparent"
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  Upload Image
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-card rounded-lg border border-border p-4">
+            <div className="flex items-center gap-3 mb-4">
+              <span className="text-primary">
+                <Lock className="h-5 w-5" />
+              </span>
+              <h3 className="text-lg font-semibold text-foreground">Security</h3>
+            </div>
+            
+            <div className="space-y-3">
+              <div>
+                <label className="text-sm font-medium text-foreground mb-2 block">
+                  {showPasswordNotification ? "Create Password" : "Change Password"}
+                </label>
+                <Input
+                  type="password"
+                  placeholder="Enter password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="mb-2"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-foreground mb-2 block">Confirm Password</label>
+                <Input
+                  type="password"
+                  placeholder="Confirm password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                />
+              </div>
+              <Button onClick={handleCreatePassword} className="w-full">
+                {showPasswordNotification ? "Create Password" : "Update Password"}
+              </Button>
+            </div>
+          </div>
+
           {settingsSections.map((section, index) => (
             <div key={index} className="bg-card rounded-lg border border-border p-4">
               <div className="flex items-center gap-3 mb-4">

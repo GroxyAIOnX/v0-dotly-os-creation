@@ -3,6 +3,8 @@ export interface UserAccount {
   username: string
   createdAt: string
   avatar?: string
+  password?: string
+  hasPassword?: boolean
   notes: Array<{ id: string; title: string; content: string }>
   settings: {
     notifications: boolean
@@ -11,11 +13,13 @@ export interface UserAccount {
     bluetooth: boolean
   }
   savedHtmlApps: Array<{ id: string; name: string; html: string }>
+  drxApps?: Array<{ id: string; name: string; html: string; installedAt: string }>
   fileSystem?: any
 }
 
 const STORAGE_KEY = "dotlyos_accounts"
 const CURRENT_USER_KEY = "dotlyos_current_user"
+const SELECTED_ACCOUNT_KEY = "dotlyos_selected_account"
 
 export function getAllAccounts(): UserAccount[] {
   if (typeof window === "undefined") return []
@@ -59,6 +63,8 @@ export function clearAccountData(username: string) {
     wifi: true,
     bluetooth: false,
   }
+  account.drxApps = []
+  account.hasPassword = false
 
   saveAccount(account)
 }
@@ -72,10 +78,24 @@ export function getCurrentUser(): string | null {
   return localStorage.getItem(CURRENT_USER_KEY)
 }
 
+export function setSelectedAccount(username: string) {
+  localStorage.setItem(SELECTED_ACCOUNT_KEY, username)
+}
+
+export function getSelectedAccount(): string | null {
+  if (typeof window === "undefined") return null
+  return localStorage.getItem(SELECTED_ACCOUNT_KEY)
+}
+
+export function clearSelectedAccount() {
+  localStorage.removeItem(SELECTED_ACCOUNT_KEY)
+}
+
 export function createDefaultAccount(username: string): UserAccount {
   return {
     username,
     createdAt: new Date().toISOString(),
+    hasPassword: false,
     notes: [],
     settings: {
       notifications: true,
@@ -84,5 +104,6 @@ export function createDefaultAccount(username: string): UserAccount {
       bluetooth: false,
     },
     savedHtmlApps: [],
+    drxApps: [],
   }
 }
