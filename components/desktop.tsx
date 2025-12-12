@@ -3,6 +3,9 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
+
+console.log("[v0] Desktop component loading...")
+
 import Taskbar from "@/components/taskbar"
 import Window from "@/components/window"
 import FileManager from "@/components/apps/file-manager"
@@ -48,6 +51,8 @@ interface AppWindow {
 }
 
 export default function Desktop({ username }: DesktopProps) {
+  console.log("[v0] Desktop rendering with username:", username)
+
   const [time, setTime] = useState(new Date())
   const [windows, setWindows] = useState<AppWindow[]>([])
   const [nextZIndex, setNextZIndex] = useState(100)
@@ -64,26 +69,38 @@ export default function Desktop({ username }: DesktopProps) {
   const [desktopContextMenu, setDesktopContextMenu] = useState<{ x: number; y: number } | null>(null)
   const [installedDrxApps, setInstalledDrxApps] = useState<Array<{ id: string; name: string; html: string }>>([])
 
+  console.log("[v0] State initialized")
+
   useEffect(() => {
+    console.log("[v0] Setting up time interval")
     const timer = setInterval(() => setTime(new Date()), 1000)
     return () => clearInterval(timer)
   }, [])
 
   useEffect(() => {
+    console.log("[v0] Loading installed .drx apps for username:", username)
     if (username) {
-      const account = getAccount(username)
-      if (account?.drxApps) {
-        setInstalledDrxApps(account.drxApps)
+      try {
+        const account = getAccount(username)
+        console.log("[v0] Account data:", account)
+        if (account?.drxApps) {
+          console.log("[v0] Found drx apps:", account.drxApps.length)
+          setInstalledDrxApps(account.drxApps)
+        }
+      } catch (error) {
+        console.error("[v0] Error loading drx apps:", error)
       }
     }
   }, [username])
 
   const handleAdminAccess = () => {
+    console.log("[v0] Admin access requested")
     setRestartMode("admin")
     setIsRestarting(true)
   }
 
   const handleRestartComplete = () => {
+    console.log("[v0] Restart complete, mode:", restartMode)
     setIsRestarting(false)
     if (restartMode === "admin") {
       setIsAdminMode(true)
@@ -92,16 +109,19 @@ export default function Desktop({ username }: DesktopProps) {
   }
 
   const handleOpenNote = (name: string, content: string) => {
+    console.log("[v0] Opening note:", name)
     setNoteToOpen({ name, content })
     openApp("notes")
   }
 
   const showAlert = (alertData: { type: "error" | "warning" | "info" | "success"; title: string; message: string }) => {
+    console.log("[v0] Showing alert:", alertData)
     setAlert(alertData)
   }
 
   const handleDesktopContextMenu = (e: React.MouseEvent) => {
     e.preventDefault()
+    console.log("[v0] Desktop context menu opened")
     setDesktopContextMenu({ x: e.clientX, y: e.clientY })
   }
 
@@ -110,39 +130,48 @@ export default function Desktop({ username }: DesktopProps) {
   }
 
   const handleRefresh = () => {
+    console.log("[v0] Refreshing desktop")
     setRestartMode("normal")
     setIsRestarting(true)
     setDesktopContextMenu(null)
   }
 
   const handleLogout = () => {
+    console.log("[v0] Logging out")
     window.location.reload()
   }
 
   const handleOpenDrxInstaller = (name: string, html: string) => {
+    console.log("[v0] Opening DRX installer for:", name)
     setDrxInstallerData({ name, html })
     openApp("drx-installer")
   }
 
   const handleDrxInstallComplete = (installed: boolean) => {
+    console.log("[v0] DRX install complete, installed:", installed)
     if (installed && drxInstallerData && username) {
-      const account = getAccount(username)
-      if (account) {
-        const newApp = {
-          id: Date.now().toString(),
-          name: drxInstallerData.name,
-          html: drxInstallerData.html,
-          installedAt: new Date().toISOString(),
+      try {
+        const account = getAccount(username)
+        if (account) {
+          const newApp = {
+            id: Date.now().toString(),
+            name: drxInstallerData.name,
+            html: drxInstallerData.html,
+            installedAt: new Date().toISOString(),
+          }
+
+          if (!account.drxApps) account.drxApps = []
+          if (!account.savedHtmlApps) account.savedHtmlApps = []
+
+          account.drxApps.push(newApp)
+          account.savedHtmlApps.push(newApp)
+          saveAccount(account)
+
+          console.log("[v0] App installed successfully")
+          setInstalledDrxApps([...account.drxApps])
         }
-
-        if (!account.drxApps) account.drxApps = []
-        if (!account.savedHtmlApps) account.savedHtmlApps = []
-
-        account.drxApps.push(newApp)
-        account.savedHtmlApps.push(newApp)
-        saveAccount(account)
-
-        setInstalledDrxApps([...account.drxApps])
+      } catch (error) {
+        console.error("[v0] Error installing drx app:", error)
       }
     }
     setDrxInstallerData(null)
@@ -157,6 +186,8 @@ export default function Desktop({ username }: DesktopProps) {
       }
     }
   }, [desktopContextMenu])
+
+  console.log("[v0] Creating apps list")
 
   const apps = [
     {
@@ -249,6 +280,8 @@ export default function Desktop({ username }: DesktopProps) {
     },
   ]
 
+  console.log("[v0] Creating allApps with", installedDrxApps.length, "drx apps")
+
   const allApps = [
     ...apps,
     // Add installed .drx apps dynamically
@@ -273,15 +306,23 @@ export default function Desktop({ username }: DesktopProps) {
   ]
 
   const openApp = (appId: string) => {
+    console.log("[v0] Opening app:", appId)
+
     const existingWindow = windows.find((w) => w.id === appId)
     if (existingWindow) {
+      console.log("[v0] Window already exists, bringing to front")
       bringToFront(appId)
       setWindows((prev) => prev.map((w) => (w.id === appId ? { ...w, isMinimized: false } : w)))
       return
     }
 
     const app = allApps.find((a) => a.id === appId)
-    if (!app) return
+    if (!app) {
+      console.error("[v0] App not found:", appId)
+      return
+    }
+
+    console.log("[v0] Creating new window for:", app.name)
 
     if (appId === "drx-installer" && !drxInstallerData) {
       console.log("[v0] Cannot open drx-installer without installation data")
@@ -290,59 +331,77 @@ export default function Desktop({ username }: DesktopProps) {
 
     const AppComponent = app.component
     let component: React.ReactNode
-    if (appId === "terminal") {
-      component = <AppComponent onAdminAccess={handleAdminAccess} />
-    } else if (appId === "launcher") {
-      component = <AppComponent apps={allApps} onAppOpen={openApp} isAdminMode={isAdminMode} />
-    } else if (appId === "files") {
-      component = <AppComponent isAdminMode={isAdminMode} onOpenNote={handleOpenNote} />
-    } else if (appId === "notes" && noteToOpen) {
-      component = <AppComponent initialNote={noteToOpen} />
-      setNoteToOpen(null) // Clear after opening
-    } else if (appId === "settings") {
-      component = <AppComponent username={username} onShowAlert={showAlert} />
-    } else if (appId === "import-html") {
-      component = <AppComponent username={username} onOpenDrxInstaller={handleOpenDrxInstaller} />
-    } else if (appId === "drx-installer" && drxInstallerData) {
-      component = (
-        <AppComponent
-          appName={drxInstallerData.name}
-          appHtml={drxInstallerData.html}
-          onInstall={handleDrxInstallComplete}
-          onClose={() => closeWindow("drx-installer")}
-        />
-      )
-    } else {
-      component = <AppComponent />
-    }
 
-    const newWindow: AppWindow = {
-      id: appId,
-      title: app.name,
-      component,
-      icon: app.icon,
-      isMinimized: false,
-      zIndex: nextZIndex,
-    }
+    try {
+      if (appId === "terminal") {
+        console.log("[v0] Creating terminal component with admin access handler")
+        component = <AppComponent onAdminAccess={handleAdminAccess} />
+      } else if (appId === "launcher") {
+        console.log("[v0] Creating launcher component")
+        component = <AppComponent apps={allApps} onAppOpen={openApp} isAdminMode={isAdminMode} />
+      } else if (appId === "files") {
+        console.log("[v0] Creating file manager component")
+        component = <AppComponent isAdminMode={isAdminMode} onOpenNote={handleOpenNote} />
+      } else if (appId === "notes" && noteToOpen) {
+        console.log("[v0] Creating notes component with initial note")
+        component = <AppComponent initialNote={noteToOpen} />
+        setNoteToOpen(null) // Clear after opening
+      } else if (appId === "settings") {
+        console.log("[v0] Creating settings component")
+        component = <AppComponent username={username} onShowAlert={showAlert} />
+      } else if (appId === "import-html") {
+        console.log("[v0] Creating import-html component")
+        component = <AppComponent username={username} onOpenDrxInstaller={handleOpenDrxInstaller} />
+      } else if (appId === "drx-installer" && drxInstallerData) {
+        console.log("[v0] Creating drx-installer component")
+        component = (
+          <AppComponent
+            appName={drxInstallerData.name}
+            appHtml={drxInstallerData.html}
+            onInstall={handleDrxInstallComplete}
+            onClose={() => closeWindow("drx-installer")}
+          />
+        )
+      } else {
+        console.log("[v0] Creating default component")
+        component = <AppComponent />
+      }
 
-    setWindows((prev) => [...prev, newWindow])
-    setNextZIndex((prev) => prev + 1)
+      const newWindow: AppWindow = {
+        id: appId,
+        title: app.name,
+        component,
+        icon: app.icon,
+        isMinimized: false,
+        zIndex: nextZIndex,
+      }
+
+      console.log("[v0] Adding window to state")
+      setWindows((prev) => [...prev, newWindow])
+      setNextZIndex((prev) => prev + 1)
+    } catch (error) {
+      console.error("[v0] Error creating window component:", error)
+    }
   }
 
   const closeWindow = (id: string) => {
+    console.log("[v0] Closing window:", id)
     setWindows((prev) => prev.filter((w) => w.id !== id))
   }
 
   const minimizeWindow = (id: string) => {
+    console.log("[v0] Minimizing window:", id)
     setWindows((prev) => prev.map((w) => (w.id === id ? { ...w, isMinimized: true } : w)))
   }
 
   const bringToFront = (id: string) => {
+    console.log("[v0] Bringing window to front:", id)
     setWindows((prev) => prev.map((w) => (w.id === id ? { ...w, zIndex: nextZIndex } : w)))
     setNextZIndex((prev) => prev + 1)
   }
 
   const toggleMinimize = (id: string) => {
+    console.log("[v0] Toggling minimize for window:", id)
     const window = windows.find((w) => w.id === id)
     if (window?.isMinimized) {
       bringToFront(id)
@@ -351,8 +410,11 @@ export default function Desktop({ username }: DesktopProps) {
   }
 
   if (isRestarting) {
+    console.log("[v0] Showing restart screen")
     return <RestartScreen onComplete={handleRestartComplete} mode={restartMode} />
   }
+
+  console.log("[v0] Rendering desktop with", windows.length, "windows")
 
   return (
     <div

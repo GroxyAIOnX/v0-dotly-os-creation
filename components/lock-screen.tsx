@@ -5,9 +5,16 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { ArrowRight, Plus, ArrowLeft } from 'lucide-react'
+import { ArrowRight, Plus, ArrowLeft } from "lucide-react"
 import Image from "next/image"
-import { getAllAccounts, type UserAccount, setSelectedAccount, getSelectedAccount, clearSelectedAccount } from "@/lib/storage"
+import {
+  getAllAccounts,
+  type UserAccount,
+  setSelectedAccount,
+  getSelectedAccount,
+  clearSelectedAccount,
+} from "@/lib/storage"
+import LockScreenTerminal from "./lock-screen-terminal"
 
 interface LockScreenProps {
   onLogin: (username: string) => void
@@ -21,14 +28,15 @@ export default function LockScreen({ onLogin }: LockScreenProps) {
   const [isCreatingAccount, setIsCreatingAccount] = useState(false)
   const [selectedAccount, setSelectedAccountState] = useState<string | null>(null)
   const [showPasswordScreen, setShowPasswordScreen] = useState(false)
+  const [showTerminal, setShowTerminal] = useState(false)
 
   useEffect(() => {
     const loadedAccounts = getAllAccounts()
     setAccounts(loadedAccounts)
-    
+
     const saved = getSelectedAccount()
     if (saved) {
-      const account = loadedAccounts.find(a => a.username === saved)
+      const account = loadedAccounts.find((a) => a.username === saved)
       if (account) {
         setSelectedAccountState(saved)
         setUsername(saved)
@@ -37,7 +45,18 @@ export default function LockScreen({ onLogin }: LockScreenProps) {
     }
   }, [])
 
-  // Update time every second
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.key === "c") {
+        e.preventDefault()
+        setShowTerminal((prev) => !prev)
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [])
+
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000)
     return () => clearInterval(timer)
@@ -53,7 +72,6 @@ export default function LockScreen({ onLogin }: LockScreenProps) {
 
   const handlePasswordSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    // No actual password check, just login
     clearSelectedAccount()
     onLogin(username)
   }
@@ -83,17 +101,15 @@ export default function LockScreen({ onLogin }: LockScreenProps) {
     day: "numeric",
   })
 
-  const selectedAccountData = showPasswordScreen ? accounts.find(a => a.username === username) : null
+  const selectedAccountData = showPasswordScreen ? accounts.find((a) => a.username === username) : null
 
   return (
     <div className="h-full w-full bg-gradient-to-br from-violet-600 via-purple-500 to-pink-500 flex items-center justify-center relative overflow-hidden">
-      {/* Animated gradient overlay */}
       <div className="absolute inset-0 bg-gradient-to-tr from-blue-500/20 via-transparent to-teal-500/20" />
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_50%,rgba(139,92,246,0.3),transparent_50%)]" />
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_50%,rgba(236,72,153,0.3),transparent_50%)]" />
 
       <div className="relative z-10 flex flex-col items-center gap-12">
-        {/* Time Display */}
         <div className="text-center">
           <h1 className="font-mono text-8xl font-bold text-white mb-2 tracking-tight drop-shadow-2xl">
             {formattedTime}
@@ -114,9 +130,7 @@ export default function LockScreen({ onLogin }: LockScreenProps) {
                     className="w-full h-full object-contain"
                   />
                 </div>
-                <h2 className="text-2xl font-semibold text-white mb-2">
-                  {selectedAccountData.username}
-                </h2>
+                <h2 className="text-2xl font-semibold text-white mb-2">{selectedAccountData.username}</h2>
               </div>
 
               <form onSubmit={handlePasswordSubmit} className="space-y-4">
@@ -150,7 +164,6 @@ export default function LockScreen({ onLogin }: LockScreenProps) {
             </div>
           ) : !isCreatingAccount && accounts.length > 0 ? (
             <div className="space-y-4">
-              {/* Existing Accounts */}
               {accounts.map((account) => (
                 <button
                   key={account.username}
@@ -175,7 +188,6 @@ export default function LockScreen({ onLogin }: LockScreenProps) {
                 </button>
               ))}
 
-              {/* Create New Account Button */}
               <button
                 onClick={() => setIsCreatingAccount(true)}
                 className="w-full bg-white/10 backdrop-blur-2xl border border-white/20 rounded-3xl p-6 shadow-2xl hover:bg-white/15 transition-all"
@@ -187,7 +199,6 @@ export default function LockScreen({ onLogin }: LockScreenProps) {
               </button>
             </div>
           ) : (
-            // Create Account Form
             <div className="bg-white/10 backdrop-blur-2xl border border-white/20 rounded-3xl p-8 shadow-2xl">
               <div className="mb-6 text-center">
                 <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-white/20 backdrop-blur-sm mb-4 border-2 border-white/30 overflow-hidden">
@@ -239,6 +250,8 @@ export default function LockScreen({ onLogin }: LockScreenProps) {
           )}
         </div>
       </div>
+
+      {showTerminal && <LockScreenTerminal onClose={() => setShowTerminal(false)} />}
     </div>
   )
 }
