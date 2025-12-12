@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Taskbar from "@/components/taskbar"
 import Window from "@/components/window"
 import FileManager from "@/components/apps/file-manager"
@@ -17,7 +17,21 @@ import ImportHtml from "@/components/apps/import-html"
 import RestartScreen from "@/components/restart-screen"
 import AlertDialog from "@/components/alert-dialog"
 import DrxInstaller from "@/components/apps/drx-installer"
-import { FolderOpen, SettingsIcon, FileText, CableIcon as CalcIcon, TerminalIcon, ImageIcon, Grid3x3, HardDrive, Database, FileCode, RefreshCw, LogOut, Package } from 'lucide-react'
+import {
+  FolderOpen,
+  SettingsIcon,
+  FileText,
+  CableIcon as CalcIcon,
+  TerminalIcon,
+  ImageIcon,
+  Grid3x3,
+  HardDrive,
+  Database,
+  FileCode,
+  RefreshCw,
+  LogOut,
+  Package,
+} from "lucide-react"
 import { getAccount, saveAccount } from "@/lib/storage"
 
 interface DesktopProps {
@@ -50,19 +64,19 @@ export default function Desktop({ username }: DesktopProps) {
   const [desktopContextMenu, setDesktopContextMenu] = useState<{ x: number; y: number } | null>(null)
   const [installedDrxApps, setInstalledDrxApps] = useState<Array<{ id: string; name: string; html: string }>>([])
 
-  useState(() => {
+  useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000)
     return () => clearInterval(timer)
-  })
+  }, [])
 
-  useState(() => {
+  useEffect(() => {
     if (username) {
       const account = getAccount(username)
       if (account?.drxApps) {
         setInstalledDrxApps(account.drxApps)
       }
     }
-  })
+  }, [username])
 
   const handleAdminAccess = () => {
     setRestartMode("admin")
@@ -120,14 +134,14 @@ export default function Desktop({ username }: DesktopProps) {
           html: drxInstallerData.html,
           installedAt: new Date().toISOString(),
         }
-        
+
         if (!account.drxApps) account.drxApps = []
         if (!account.savedHtmlApps) account.savedHtmlApps = []
-        
+
         account.drxApps.push(newApp)
         account.savedHtmlApps.push(newApp)
         saveAccount(account)
-        
+
         setInstalledDrxApps([...account.drxApps])
       }
     }
@@ -135,14 +149,14 @@ export default function Desktop({ username }: DesktopProps) {
     closeWindow("drx-installer")
   }
 
-  useState(() => {
+  useEffect(() => {
     if (desktopContextMenu) {
       document.addEventListener("click", handleCloseDesktopMenu)
       return () => {
         document.removeEventListener("click", handleCloseDesktopMenu)
       }
     }
-  })
+  }, [desktopContextMenu])
 
   const apps = [
     {
@@ -341,7 +355,7 @@ export default function Desktop({ username }: DesktopProps) {
   }
 
   return (
-    <div 
+    <div
       className="h-full w-full bg-gradient-to-br from-violet-600 via-purple-600 to-pink-500 relative"
       onContextMenu={handleDesktopContextMenu}
     >
