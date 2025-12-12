@@ -243,13 +243,12 @@ export default function Desktop({ username }: DesktopProps) {
       name: drxApp.name,
       icon: <Package className="w-6 h-6 text-primary" />,
       component: () => (
-        <div className="h-full w-full overflow-auto">
+        <div className="h-full w-full">
           <iframe
             srcDoc={drxApp.html}
-            className="w-full min-h-full border-0"
-            style={{ height: '100%', minHeight: '100%' }}
+            className="w-full h-full border-0"
             title={drxApp.name}
-            sandbox="allow-scripts allow-same-origin allow-forms allow-modals allow-popups"
+            sandbox="allow-scripts allow-same-origin allow-forms"
           />
         </div>
       ),

@@ -60,44 +60,18 @@ export default function Window({ title, icon, children, onClose, onMinimize, onF
   }
 
   const handleMaximize = () => {
-    console.log("[v0] Maximize clicked. Current state:", { isMaximized, position, size })
-    console.log("[v0] Window dimensions:", { 
-      innerWidth: window.innerWidth, 
-      innerHeight: window.innerHeight,
-      calculatedHeight: window.innerHeight - 80 
-    })
-    
     if (isMaximized) {
       // Restore
-      console.log("[v0] Restoring window to:", prevDimensions)
       setPosition({ x: prevDimensions.x, y: prevDimensions.y })
       setSize({ width: prevDimensions.width, height: prevDimensions.height })
       setIsMaximized(false)
     } else {
-      // Maximize
       setPrevDimensions({ x: position.x, y: position.y, width: size.width, height: size.height })
-      const maxHeight = window.innerHeight - 80
-      console.log("[v0] Maximizing window. Setting height to:", maxHeight)
       setPosition({ x: 0, y: 0 })
-      setSize({ width: window.innerWidth, height: maxHeight })
+      setSize({ width: window.innerWidth, height: window.innerHeight - 80 })
       setIsMaximized(true)
     }
   }
-
-  useEffect(() => {
-    if (windowRef.current && isMaximized) {
-      const rect = windowRef.current.getBoundingClientRect()
-      console.log("[v0] Window rendered dimensions:", {
-        top: rect.top,
-        left: rect.left,
-        width: rect.width,
-        height: rect.height,
-        bottom: rect.bottom,
-        viewportHeight: window.innerHeight,
-        gapFromBottom: window.innerHeight - rect.bottom
-      })
-    }
-  }, [isMaximized, position, size])
 
   const handleClose = () => {
     setIsClosing(true)
@@ -138,32 +112,28 @@ export default function Window({ title, icon, children, onClose, onMinimize, onF
     }
   }, [contextMenu])
 
-  const windowStyle = {
-    left: isMaximized ? '0px' : position.x,
-    top: isMaximized ? '0px' : position.y,
-    width: isMaximized ? '100vw' : `${size.width}px`,
-    height: isMaximized ? 'calc(100vh - 80px)' : `${size.height}px`,
-    zIndex,
-    transition: isClosing || isMinimized ? 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)' : isMaximized !== undefined ? 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)' : 'none',
-    opacity: isOpening ? 0 : isClosing ? 0 : 1,
-    transform: isOpening 
-      ? 'scale(0.95) translateY(20px)' 
-      : isClosing 
-      ? 'scale(0.9) translateY(20px)' 
-      : isMinimized 
-      ? 'scale(0.3) translateY(100vh)' 
-      : 'scale(1) translateY(0)',
-  }
-
-  console.log("[v0] Window style being applied:", windowStyle)
-
   return (
     <div
       ref={windowRef}
       className={`absolute bg-card/70 backdrop-blur-2xl border border-border/40 shadow-2xl overflow-hidden ${
         isMaximized ? 'rounded-none' : 'rounded-xl'
       }`}
-      style={windowStyle}
+      style={{
+        left: isMaximized ? 0 : position.x,
+        top: isMaximized ? 0 : position.y,
+        width: isMaximized ? '100vw' : size.width,
+        height: isMaximized ? 'calc(100vh - 80px)' : size.height,
+        zIndex,
+        transition: isClosing || isMinimized ? 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)' : isMaximized !== undefined ? 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)' : 'none',
+        opacity: isOpening ? 0 : isClosing ? 0 : 1,
+        transform: isOpening 
+          ? 'scale(0.95) translateY(20px)' 
+          : isClosing 
+          ? 'scale(0.9) translateY(20px)' 
+          : isMinimized 
+          ? 'scale(0.3) translateY(100vh)' 
+          : 'scale(1) translateY(0)',
+      }}
       onClick={onFocus}
       onContextMenu={handleContextMenu}
     >
@@ -205,9 +175,7 @@ export default function Window({ title, icon, children, onClose, onMinimize, onF
       </div>
 
       {/* Content */}
-      <div className="h-[calc(100%-2.5rem)] overflow-auto bg-background/50 backdrop-blur-sm">
-        {children}
-      </div>
+      <div className="h-[calc(100%-2.5rem)] overflow-auto bg-background/50 backdrop-blur-sm">{children}</div>
 
       {contextMenu && (
         <div
